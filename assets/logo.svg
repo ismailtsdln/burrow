@@ -1,0 +1,97 @@
+<svg width="240" height="240" viewBox="0 0 240 240"
+  xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Muted Tech Gradient for Pyramid Body -->
+    <linearGradient id="pyrGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#312e81;stop-opacity:1" />
+      <!-- Indigo-900 -->
+      <stop offset="100%" style="stop-color:#4338ca;stop-opacity:1" />
+      <!-- Indigo-800 -->
+    </linearGradient>
+
+    <!-- Glowing Eye Gradient -->
+    <radialGradient id="eyeGrad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" style="stop-color:#fff;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <!-- Cyan-500 -->
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0" />
+    </radialGradient>
+
+    <!-- Scanning Beam Gradient -->
+    <linearGradient id="scanBeam" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0" />
+      <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:0.5" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0" />
+    </linearGradient>
+
+    <style>
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+      }
+      
+      @keyframes pulseEye {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.2); opacity: 1; }
+      }
+
+      @keyframes scan {
+        0% { transform: translateY(-60px); opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { transform: translateY(140px); opacity: 0; }
+      }
+
+      .capstone {
+        animation: float 4s ease-in-out infinite;
+      }
+
+      .eye-core {
+        transform-origin: 120px 70px;
+        animation: pulseEye 3s ease-in-out infinite;
+      }
+
+      .scan-line {
+        fill: url(#scanBeam);
+        animation: scan 3s linear infinite;
+        width: 200px;
+        height: 20px;
+        x: 20;
+      }
+    </style>
+  </defs>
+
+  <!-- Base Pyramid (Truncated) -->
+  <path d="M40,200 L200,200 L165,110 L75,110 Z" fill="url(#pyrGrad)" stroke="#4f46e5" stroke-width="2" stroke-linejoin="round" />
+
+  <!-- Horizontal Segment Lines (Layers) -->
+  <line x1="60" y1="170" x2="180" y2="170" stroke="#6366f1" stroke-width="1" opacity="0.3" />
+  <line x1="70" y1="140" x2="170" y2="140" stroke="#6366f1" stroke-width="1" opacity="0.3" />
+
+  <!-- Scanning Beam Effect (Clipped to pyramid shape ideally, but overlay works for effect) -->
+  <clipPath id="pyramidClip">
+    <path d="M120,40 L200,200 L40,200 Z" />
+  </clipPath>
+
+  <g clip-path="url(#pyramidClip)">
+    <rect class="scan-line" y="40" />
+  </g>
+
+  <!-- Floating Capstone containing the Eye -->
+  <g class="capstone">
+    <!-- Capstone Triangle -->
+    <path d="M120,40 L155,100 L85,100 Z" fill="#1e1b4b" stroke="#06b6d4" stroke-width="2" stroke-linejoin="round" />
+
+    <!-- The Eye -->
+    <!-- Sclera -->
+    <path d="M95,75 Q120,60 145,75 Q120,90 95,75 Z" fill="none" stroke="#22d3ee" stroke-width="1.5" />
+    <!-- Pupil/Iris -->
+    <circle class="eye-core" cx="120" cy="74" r="5" fill="url(#eyeGrad)" />
+  </g>
+
+  <!-- Rays of Light (Subtle) -->
+  <line x1="120" y1="40" x2="120" y2="20" stroke="#06b6d4" stroke-width="1" stroke-dasharray="2 4" opacity="0.5" />
+  <line x1="120" y1="40" x2="90" y2="30" stroke="#06b6d4" stroke-width="1" stroke-dasharray="2 4" opacity="0.5" />
+  <line x1="120" y1="40" x2="150" y2="30" stroke="#06b6d4" stroke-width="1" stroke-dasharray="2 4" opacity="0.5" />
+
+</svg>
