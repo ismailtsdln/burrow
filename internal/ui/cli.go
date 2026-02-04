@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"time"
@@ -72,6 +74,7 @@ func runScan(args []string) error {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	category := fs.String("category", "", "Filter by category")
 	olderThan := fs.String("older-than", "", "Filter items older than duration (e.g. 30d, 24h)")
+	interactive := fs.Bool("interactive", false, "Interactive mode (select items to clean)")
 	js := fs.Bool("json", false, "Output in JSON format")
 	explain := fs.Bool("explain", false, "Explain why paths were selected")
 	fs.Parse(args)
@@ -122,18 +125,91 @@ func runScan(args []string) error {
 		return nil
 	}
 
-	PrintHeader(fmt.Sprintf("%-30s %-15s %s", "CATEGORY", "SIZE", "RULE"))
-	fmt.Println(Gray + strings.Repeat("-", 70) + Reset)
-	for _, res := range results.Results {
-		fmt.Printf("%-30s %-15s %s\n", Colorize(Blue, res.Rule.Category), Colorize(Yellow, FormatSize(res.TotalSize)), res.Rule.Name)
+	PrintHeader(fmt.Sprintf("%-5s %-30s %-15s %s", "ID", "CATEGORY", "SIZE", "RULE"))
+	fmt.Println(Gray + strings.Repeat("-", 75) + Reset)
+	for i, res := range results.Results {
+		fmt.Printf("%-5d %-30s %-15s %s\n", i+1, Colorize(Blue, res.Rule.Category), Colorize(Yellow, FormatSize(res.TotalSize)), res.Rule.Name)
 		if *explain {
-			fmt.Printf("   %s %s\n", Colorize(Cyan, "💡"), Colorize(Gray, res.Rule.Explanation))
+			fmt.Printf("      %s %s\n", Colorize(Cyan, "💡"), Colorize(Gray, res.Rule.Explanation))
 		}
 	}
 
-	fmt.Println(Gray + strings.Repeat("-", 70) + Reset)
+	fmt.Println(Gray + strings.Repeat("-", 75) + Reset)
 	fmt.Printf(Bold+"Total reclaimable space: %s"+Reset+"\n", Colorize(Green, FormatSize(results.TotalSize)))
-	fmt.Println("\nRun 'burrow clean' to see a detailed breakdown or 'burrow list' to see all files.")
+
+	if *interactive {
+		return runInteractiveScan(results)
+	}
+
+	fmt.Println("\nRun 'burrow clean' (or use -i) to reclaim space.")
+	return nil
+}
+
+func runInteractiveScan(results *scanner.ScanResults) error {
+	fmt.Println("\n" + Bold + "Interactive Cleanup Selection" + Reset)
+	fmt.Println("Enter IDs to clean (e.g. '1, 3, 5-7') or 'all'. Press Enter to skip.")
+	fmt.Print(Colorize(Green, "Selection > "))
+
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	if input == "" {
+		fmt.Println("No items selected. Exiting.")
+		return nil
+	}
+
+	selectedIndices := make(map[int]bool)
+
+	if strings.EqualFold(input, "all") {
+		for i := range results.Results {
+			selectedIndices[i] = true
+		}
+	} else {
+		parts := strings.Split(input, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if strings.Contains(part, "-") {
+				// Handle ranges (e.g., 5-7)
+				rangeParts := strings.Split(part, "-")
+				if len(rangeParts) == 2 {
+					start, _ := strconv.Atoi(rangeParts[0])
+					end, _ := strconv.Atoi(rangeParts[1])
+					for i := start; i <= end; i++ {
+						selectedIndices[i-1] = true
+					}
+				}
+			} else {
+				// Handle single numbers
+				if idx, err := strconv.Atoi(part); err == nil {
+					selectedIndices[idx-1] = true
+				}
+			}
+		}
+	}
+
+	var toClean []rules.Result
+	for i, res := range results.Results {
+		if selectedIndices[i] {
+			toClean = append(toClean, res)
+		}
+	}
+
+	if len(toClean) == 0 {
+		fmt.Println("No valid items selected.")
+		return nil
+	}
+
+	fmt.Printf("\nSelected %d items for cleanup.\n", len(toClean))
+	c := cleaner.NewCleaner()
+	res, err := c.Clean(toClean, false)
+	if err != nil {
+		return err
+	}
+
+	PrintSuccess("Successfully reclaimed %s!", FormatSize(res.ReclaimedSpace))
+	fmt.Printf("Files moved to trash: %d\n", res.FileCount)
+	fmt.Printf("Trash Session ID: %s\n", Colorize(Cyan, res.TrashSession))
 	return nil
 }
 
