@@ -1,6 +1,9 @@
 package cleaner
 
 import (
+	"time"
+
+	"github.com/ismailtsdln/burrow/internal/history"
 	"github.com/ismailtsdln/burrow/internal/rules"
 )
 
@@ -28,9 +31,12 @@ func (c *Cleaner) Clean(results []rules.Result, dryRun bool) (*CleanResult, erro
 	var totalSpace int64
 	var totalPaths []string
 
+	categoryStats := make(map[string]int64)
+
 	for _, res := range results {
 		totalSpace += res.TotalSize
 		totalPaths = append(totalPaths, res.FoundPaths...)
+		categoryStats[res.Rule.Category] += res.TotalSize
 	}
 
 	if dryRun {
@@ -45,6 +51,16 @@ func (c *Cleaner) Clean(results []rules.Result, dryRun bool) (*CleanResult, erro
 	if err != nil {
 		return nil, err
 	}
+
+	// Save to history
+	histMgr := history.NewManager()
+	histMgr.Save(history.Entry{
+		ID:             session,
+		Timestamp:      time.Now(),
+		ReclaimedBytes: totalSpace,
+		FileCount:      len(totalPaths),
+		CategoryStats:  categoryStats,
+	})
 
 	return &CleanResult{
 		ReclaimedSpace: totalSpace,

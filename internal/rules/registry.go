@@ -9,6 +9,12 @@ type Registry struct {
 func NewRegistry() *Registry {
 	r := &Registry{}
 	r.registerDefaultRules()
+
+	// Load custom rules
+	if custom, err := LoadCustomRules(); err == nil && len(custom) > 0 {
+		r.rules = append(r.rules, custom...)
+	}
+
 	return r
 }
 

@@ -8,7 +8,7 @@ import (
 
 // IsSafe returns true if the path is safe to delete.
 func IsSafe(path string) (bool, string) {
-	absPath, err := filepath.Abs(expandPath(path))
+	absPath, err := filepath.Abs(ExpandPath(path))
 	if err != nil {
 		return false, "Invalid path"
 	}
@@ -54,8 +54,8 @@ func IsSafe(path string) (bool, string) {
 	return true, ""
 }
 
-// expandPath replaces ~ with the user's home directory.
-func expandPath(path string) string {
+// ExpandPath replaces ~ with the user's home directory.
+func ExpandPath(path string) string {
 	if strings.HasPrefix(path, "~/") {
 		home, _ := os.UserHomeDir()
 		return filepath.Join(home, path[2:])
@@ -70,8 +70,16 @@ func isGitRepo(path string) bool {
 		return true
 	}
 
-	// Check for .git in the current directory
-	if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
+	// Check for .git in the current directory or any subdirectory
+	found := false
+	filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err == nil && info.IsDir() && info.Name() == ".git" {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if found {
 		return true
 	}
 

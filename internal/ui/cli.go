@@ -14,6 +14,7 @@ import (
 
 	"github.com/ismailtsdln/burrow/internal/cleaner"
 	"github.com/ismailtsdln/burrow/internal/config"
+	"github.com/ismailtsdln/burrow/internal/history"
 	"github.com/ismailtsdln/burrow/internal/rules"
 	"github.com/ismailtsdln/burrow/internal/scanner"
 )
@@ -35,6 +36,8 @@ func Execute() error {
 		return runList(args)
 	case "stats":
 		return runStats(args)
+	case "history":
+		return runHistory()
 	case "clean":
 		return runClean(args)
 	case "undo":
@@ -64,6 +67,7 @@ func printUsage() {
 	fmt.Printf("  %-10s %s\n", Colorize(Green, "list"), "List all detected files")
 	fmt.Printf("  %-10s %s\n", Colorize(Green, "rules"), "List all cleanup rules")
 	fmt.Printf("  %-10s %s\n", Colorize(Green, "stats"), "Show disk reclaimable stats")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "history"), "Show cleanup history")
 	fmt.Printf("  %-10s %s\n", Colorize(Green, "doctor"), "Check system health and permissions")
 	fmt.Printf("  %-10s %s\n", Colorize(Green, "version"), "Show version information")
 	fmt.Println("\n" + Bold + "Flags:" + Reset)
@@ -74,6 +78,7 @@ func runScan(args []string) error {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	category := fs.String("category", "", "Filter by category")
 	olderThan := fs.String("older-than", "", "Filter items older than duration (e.g. 30d, 24h)")
+	largeFiles := fs.Bool("large", false, "Scan for large files (>100MB) in common directories")
 	interactive := fs.Bool("interactive", false, "Interactive mode (select items to clean)")
 	js := fs.Bool("json", false, "Output in JSON format")
 	explain := fs.Bool("explain", false, "Explain why paths were selected")
@@ -103,6 +108,7 @@ func runScan(args []string) error {
 		ExcludedPaths: cfg.ExcludedPaths,
 		SizeThreshold: cfg.SizeThresholdMB * 1024 * 1024,
 		OlderThan:     ageDuration,
+		LargeFileMode: *largeFiles,
 	})
 
 	if !*js {
@@ -173,16 +179,22 @@ func runInteractiveScan(results *scanner.ScanResults) error {
 				// Handle ranges (e.g., 5-7)
 				rangeParts := strings.Split(part, "-")
 				if len(rangeParts) == 2 {
-					start, _ := strconv.Atoi(rangeParts[0])
-					end, _ := strconv.Atoi(rangeParts[1])
-					for i := start; i <= end; i++ {
-						selectedIndices[i-1] = true
+					start, err1 := strconv.Atoi(rangeParts[0])
+					end, err2 := strconv.Atoi(rangeParts[1])
+					if err1 == nil && err2 == nil {
+						for i := start; i <= end; i++ {
+							if i > 0 && i <= len(results.Results) {
+								selectedIndices[i-1] = true
+							}
+						}
 					}
 				}
 			} else {
 				// Handle single numbers
 				if idx, err := strconv.Atoi(part); err == nil {
-					selectedIndices[idx-1] = true
+					if idx > 0 && idx <= len(results.Results) {
+						selectedIndices[idx-1] = true
+					}
 				}
 			}
 		}
@@ -375,6 +387,33 @@ func runRules(args []string) error {
 	return nil
 }
 
+func runHistory() error {
+	histMgr := history.NewManager()
+	entries, err := histMgr.Load()
+	if err != nil {
+		return err
+	}
+
+	if len(entries) == 0 {
+		fmt.Println("No history found. Start cleaning to build history!")
+		return nil
+	}
+
+	PrintHeader("Cleanup History")
+	fmt.Printf(Gray+"%-20s %-15s %-10s %s"+Reset+"\n", "DATE", "RECLAIMED", "FILES", "SESSION ID")
+	fmt.Println(Gray + strings.Repeat("-", 60) + Reset)
+
+	for _, e := range entries {
+		fmt.Printf("%-20s %-15s %-10d %s\n",
+			e.Timestamp.Format("2006-01-02 15:04"),
+			Colorize(Green, FormatSize(e.ReclaimedBytes)),
+			e.FileCount,
+			Colorize(Cyan, e.ID),
+		)
+	}
+	return nil
+}
+
 func runStats(args []string) error {
 	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
 	js := fs.Bool("json", false, "Output in JSON format")
@@ -453,6 +492,6 @@ func runDoctor() error {
 }
 
 func runVersion() error {
-	fmt.Println("Burrow v0.1.0-mvp")
+	fmt.Println("Burrow v0.2.0")
 	return nil
 }

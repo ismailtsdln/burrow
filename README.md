@@ -20,6 +20,7 @@ burrow undo      # Restore last cleanup session
 burrow list      # Detailed list of found files
 burrow rules     # List all available cleanup rules
 burrow stats     # Show disk reclaimable statistics
+burrow history   # Show cleanup history and trends
 burrow doctor    # Check system health and permissions
 burrow version   # Show version information
 ```
@@ -56,6 +57,24 @@ Clean without confirmation (CI/CD mode):
 burrow clean --yes
 ```
 
+**Interactive Selection**:
+
+```bash
+burrow scan --interactive  # or -i
+```
+
+**Large File Discovery** (scans Downloads, Movies, etc.):
+
+```bash
+burrow scan --large
+```
+
+**History Tracking**:
+
+```bash
+burrow history
+```
+
 ## Categories Covered
 
 - **Package Managers**:
@@ -77,6 +96,7 @@ burrow clean --yes
   - **Electron Apps**: Cache cleanup for Slack, Discord, VS Code.
   - General user caches and temporary files (`/tmp`).
 - **Containers**: Docker configuration and usage inspection.
+- **Large Files**: Discovery of files >100MB in common user folders.
 
 ## Safety Guardrails
 
@@ -113,6 +133,21 @@ Customize Burrow by creating `~/.config/burrow/config.json`:
   "excluded_paths": ["/Users/me/important_cache"],
   "size_threshold_mb": 100
 }
+```
+
+### Custom Rules
+
+You can define your own cleanup rules in `~/.config/burrow/custom_rules.json`:
+
+```json
+[
+  {
+    "name": "My Custom Logs",
+    "category": "Custom",
+    "paths": ["~/Projects/myapp/logs/*.log"],
+    "description": "Clean my app's specific logs."
+  }
+]
 ```
 
 ## Project Structure

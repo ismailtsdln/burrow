@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ type ScanOptions struct {
 	SizeThreshold int64
 	ExcludedPaths []string
 	OlderThan     time.Duration
+	LargeFileMode bool
 }
 
 // Scanner handles the scanning of the filesystem for cleanup candidates.
@@ -41,11 +43,72 @@ type ScanResults struct {
 
 // Scan performs a scan based on the registered rules.
 func (s *Scanner) Scan() (*ScanResults, error) {
-	allRules := s.registry.All()
 	results := make([]rules.Result, 0)
 	var totalSize int64
 	var mu sync.Mutex
 	var wg sync.WaitGroup
+
+	// Large File Scan Mode
+	if s.options.LargeFileMode {
+		dirsToScan := []string{
+			"~/Downloads",
+			"~/Desktop",
+			"~/Documents",
+			"~/Movies",
+			"~/Pictures",
+		}
+
+		threshold := s.options.SizeThreshold
+		if threshold == 0 {
+			threshold = 100 * 1024 * 1024 // Default 100MB
+		}
+
+		for _, dir := range dirsToScan {
+			expanded := safety.ExpandPath(dir)
+			wg.Add(1)
+			go func(d string) {
+				defer wg.Done()
+				var foundPaths []string
+				var ruleSize int64
+
+				filepath.Walk(d, func(path string, info os.FileInfo, err error) error {
+					if err != nil || info.IsDir() {
+						return nil
+					}
+					if info.Size() > threshold {
+						foundPaths = append(foundPaths, path)
+						ruleSize += info.Size()
+					}
+					return nil
+				})
+
+				if len(foundPaths) > 0 {
+					mu.Lock()
+					results = append(results, rules.Result{
+						Rule: rules.CleanupRule{
+							Name:        "Large Files (>100MB)",
+							Category:    "Large Files",
+							Description: fmt.Sprintf("Files larger than %s in %s", formatBytes(threshold), d),
+							RiskLevel:   rules.RiskManual,
+						},
+						FoundPaths: foundPaths,
+						TotalSize:  ruleSize,
+					})
+					totalSize += ruleSize
+					mu.Unlock()
+				}
+			}(expanded)
+		}
+		wg.Wait()
+		return &ScanResults{Results: results, TotalSize: totalSize}, nil
+	}
+
+	// Regular Rule-Based Scan
+	results = make([]rules.Result, 0)
+	totalSize = 0
+
+	allRules := s.registry.All()
+	// Reuse existing variables, reset results for standard scan if not in large mode
 
 	for _, rule := range allRules {
 		// Filter by category if specified
@@ -61,12 +124,12 @@ func (s *Scanner) Scan() (*ScanResults, error) {
 			var ruleSize int64
 
 			for _, pathPattern := range r.Paths {
-				expanded := expandPath(pathPattern)
+				expanded := safety.ExpandPath(pathPattern)
 
 				// Filter by excluded paths
 				excluded := false
 				for _, ep := range s.options.ExcludedPaths {
-					if strings.HasPrefix(expanded, expandPath(ep)) {
+					if strings.HasPrefix(expanded, safety.ExpandPath(ep)) {
 						excluded = true
 						break
 					}
@@ -132,16 +195,6 @@ func (s *Scanner) Scan() (*ScanResults, error) {
 	}, nil
 }
 
-// expandPath is a helper that should ideally be in a shared package or internal to safety,
-// but for simplicity we re-implement it here or call safety.
-func expandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path[2:])
-	}
-	return path
-}
-
 // dirSize calculates the total size of a directory.
 func dirSize(path string) (int64, error) {
 	var size int64
@@ -155,4 +208,17 @@ func dirSize(path string) (int64, error) {
 		return nil
 	})
 	return size, err
+}
+
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
