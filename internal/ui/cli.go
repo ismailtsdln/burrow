@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"time"
+
 	"github.com/ismailtsdln/burrow/internal/cleaner"
 	"github.com/ismailtsdln/burrow/internal/config"
 	"github.com/ismailtsdln/burrow/internal/rules"
@@ -69,9 +71,27 @@ func printUsage() {
 func runScan(args []string) error {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	category := fs.String("category", "", "Filter by category")
+	olderThan := fs.String("older-than", "", "Filter items older than duration (e.g. 30d, 24h)")
 	js := fs.Bool("json", false, "Output in JSON format")
 	explain := fs.Bool("explain", false, "Explain why paths were selected")
 	fs.Parse(args)
+
+	var ageDuration time.Duration
+	if *olderThan != "" {
+		// Basic "d" parsing fix since time.ParseDuration doesn't support "d" (days)
+		if strings.HasSuffix(*olderThan, "d") {
+			daysStr := strings.TrimSuffix(*olderThan, "d")
+			var days int
+			fmt.Sscanf(daysStr, "%d", &days)
+			ageDuration = time.Duration(days) * 24 * time.Hour
+		} else {
+			var err error
+			ageDuration, err = time.ParseDuration(*olderThan)
+			if err != nil {
+				return fmt.Errorf("invalid duration format: %s (example: 30d, 24h)", *olderThan)
+			}
+		}
+	}
 
 	cfg, _ := config.Load()
 	registry := rules.NewRegistry()
@@ -79,6 +99,7 @@ func runScan(args []string) error {
 		Category:      *category,
 		ExcludedPaths: cfg.ExcludedPaths,
 		SizeThreshold: cfg.SizeThresholdMB * 1024 * 1024,
+		OlderThan:     ageDuration,
 	})
 
 	if !*js {
@@ -119,15 +140,33 @@ func runScan(args []string) error {
 func runClean(args []string) error {
 	fs := flag.NewFlagSet("clean", flag.ContinueOnError)
 	dryRun := fs.Bool("dry-run", true, "Perform a dry run (default true)")
+	olderThan := fs.String("older-than", "", "Filter items older than duration (e.g. 30d, 24h)")
 	yes := fs.Bool("yes", false, "Confirm cleanup automatically")
 	diff := fs.Bool("diff", false, "Show detailed diff of planned deletions")
 	fs.Parse(args)
+
+	var ageDuration time.Duration
+	if *olderThan != "" {
+		if strings.HasSuffix(*olderThan, "d") {
+			daysStr := strings.TrimSuffix(*olderThan, "d")
+			var days int
+			fmt.Sscanf(daysStr, "%d", &days)
+			ageDuration = time.Duration(days) * 24 * time.Hour
+		} else {
+			var err error
+			ageDuration, err = time.ParseDuration(*olderThan)
+			if err != nil {
+				return fmt.Errorf("invalid duration format: %s (example: 30d, 24h)", *olderThan)
+			}
+		}
+	}
 
 	cfg, _ := config.Load()
 	registry := rules.NewRegistry()
 	s := scanner.NewScanner(registry, scanner.ScanOptions{
 		ExcludedPaths: cfg.ExcludedPaths,
 		SizeThreshold: cfg.SizeThresholdMB * 1024 * 1024,
+		OlderThan:     ageDuration,
 	})
 
 	results, err := s.Scan()

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ismailtsdln/burrow/internal/rules"
 	"github.com/ismailtsdln/burrow/internal/safety"
@@ -15,6 +16,7 @@ type ScanOptions struct {
 	Category      string
 	SizeThreshold int64
 	ExcludedPaths []string
+	OlderThan     time.Duration
 }
 
 // Scanner handles the scanning of the filesystem for cleanup candidates.
@@ -73,9 +75,21 @@ func (s *Scanner) Scan() (*ScanResults, error) {
 					continue
 				}
 
-				// Basic check if path exists
-				if _, err := os.Stat(expanded); os.IsNotExist(err) {
+				info, err := os.Stat(expanded)
+				if err != nil {
 					continue
+				}
+
+				// Basic check if path exists (redundant but safe)
+				if os.IsNotExist(err) {
+					continue
+				}
+
+				// Filter by Time (OlderThan)
+				if s.options.OlderThan > 0 {
+					if time.Since(info.ModTime()) < s.options.OlderThan {
+						continue
+					}
 				}
 
 				// Safety check

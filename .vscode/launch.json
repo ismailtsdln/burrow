@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Burrow: Scan (Dev Tools)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/burrow/main.go",
+            "args": ["scan", "--category", "Developer Tools"]
+        },
+        {
+            "name": "Burrow: Rules",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/burrow/main.go",
+            "args": ["rules"]
+        },
+        {
+            "name": "Burrow: Stats",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/burrow/main.go",
+            "args": ["stats"]
+        }
+    ]
+}

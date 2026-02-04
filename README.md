@@ -34,6 +34,12 @@ Filter scans by category:
 burrow scan --category "Developer Tools"
 ```
 
+Filter files by age (e.g., older than 30 days):
+
+```bash
+burrow scan --older-than 30d
+```
+
 Explain why files are being flagged:
 
 ```bash
@@ -54,9 +60,25 @@ burrow clean --yes
 
 ## Categories Covered
 
-- **Package Managers**: Homebrew, npm, pip, Cargo registry index/cache.
-- **Developer Tools**: Xcode DerivedData, Android Build Cache, Gradle Cache.
-- **System**: General user caches and temporary files.
+- **Package Managers**: 
+  - **Node.js**: npm (`~/.npm`), Yarn (`~/Library/Caches/Yarn`).
+  - **Python**: pip (`~/Library/Caches/pip`).
+  - **Rust**: Cargo registry & index (`~/.cargo`).
+  - **Go**: Mod cache (`~/go/pkg/mod`).
+  - **Ruby**: Gem specs (`~/.gem/specs`).
+  - **PHP**: Composer (`~/.composer/cache`).
+  - **iOS**: CocoaPods (`~/Library/Caches/CocoaPods`).
+  - **macOS**: Homebrew (`~/Library/Caches/Homebrew`).
+- **Developer Tools**: 
+  - **Xcode**: DerivedData, Simulators.
+  - **Android**: Build Cache.
+  - **Java/Kotlin**: Gradle Cache.
+  - **Go**: Build Cache (`~/.cache/go-build`).
+  - **JetBrains**: Caches (IntelliJ, WebStorm, PyCharm, etc.).
+- **System**: 
+  - **Electron Apps**: Cache cleanup for Slack, Discord, VS Code.
+  - General user caches and temporary files (`/tmp`).
+- **Containers**: Docker configuration and usage inspection.
 
 ## Safety Guardrails
 
