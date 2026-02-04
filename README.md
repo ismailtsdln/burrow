@@ -4,8 +4,6 @@
   <img src="assets/logo.svg" width="200" alt="Burrow Logo">
 </p>
 
-[GitHub Repo](https://github.com/ismailtsdln/burrow)
-
 Burrow is a macOS-first command-line tool designed for developers to safely identify and remove unnecessary files left behind by development tools, SDKs, and package managers.
 
 ## Design Philosophy
