@@ -530,6 +530,6 @@ func runDoctor() error {
 }
 
 func runVersion() error {
-	fmt.Println("Burrow v0.2.0")
+	fmt.Println("Burrow v0.3.0")
 	return nil
 }
