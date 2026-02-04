@@ -2,9 +2,12 @@ package cleaner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -52,9 +55,7 @@ func (tm *TrashManager) MoveToTrash(paths []string) (string, error) {
 		// Handle potential name collisions in the trash session
 		trashPath := filepath.Join(sessionDir, targetName)
 
-		if err := os.Rename(path, trashPath); err != nil {
-			// If rename fails (e.g., across filesystems), try copying/deleting
-			// For MVP, we'll assume same filesystem or return error
+		if err := tm.movePath(path, trashPath); err != nil {
 			return "", fmt.Errorf("failed to move %s to trash: %w", path, err)
 		}
 
@@ -110,11 +111,97 @@ func (tm *TrashManager) RestoreLast() error {
 		if err := os.MkdirAll(filepath.Dir(entry.OriginalPath), 0755); err != nil {
 			continue // Best effort
 		}
-		if err := os.Rename(entry.TrashPath, entry.OriginalPath); err != nil {
+		if err := tm.movePath(entry.TrashPath, entry.OriginalPath); err != nil {
 			fmt.Printf("Warning: Failed to restore %s: %v\n", entry.OriginalPath, err)
 		}
 	}
 
 	// Clean up the empty trash session directory
 	return os.RemoveAll(sessionDir)
+}
+
+// movePath attempts to rename a file/directory, and falls back to copy+delete if it fails due to being on a different device.
+func (tm *TrashManager) movePath(src, dst string) error {
+	err := os.Rename(src, dst)
+	if err == nil {
+		return nil
+	}
+
+	// Check if the error is a cross-device link error (EXDEV)
+	var linkErr *os.LinkError
+	if errors.As(err, &linkErr) {
+		if errno, ok := linkErr.Err.(syscall.Errno); ok && errno == syscall.EXDEV {
+			// Fallback to copy and delete
+			if err := tm.copyPath(src, dst); err != nil {
+				return fmt.Errorf("failed to copy during fallback: %w", err)
+			}
+			return os.RemoveAll(src)
+		}
+	}
+
+	return err
+}
+
+// copyPath copies a file or directory recursively.
+func (tm *TrashManager) copyPath(src, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return tm.copyDir(src, dst)
+	}
+	return tm.copyFile(src, dst)
+}
+
+func (tm *TrashManager) copyFile(src, dst string) error {
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	if _, err := io.Copy(destination, source); err != nil {
+		return err
+	}
+
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(dst, info.Mode())
+}
+
+func (tm *TrashManager) copyDir(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dst, info.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcEntry := filepath.Join(src, entry.Name())
+		dstEntry := filepath.Join(dst, entry.Name())
+
+		if err := tm.copyPath(srcEntry, dstEntry); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

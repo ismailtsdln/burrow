@@ -12,6 +12,7 @@ import (
 
 	"time"
 
+	"github.com/ismailtsdln/burrow/internal/auth"
 	"github.com/ismailtsdln/burrow/internal/cleaner"
 	"github.com/ismailtsdln/burrow/internal/config"
 	"github.com/ismailtsdln/burrow/internal/history"
@@ -82,6 +83,7 @@ func runScan(args []string) error {
 	interactive := fs.Bool("interactive", false, "Interactive mode (select items to clean)")
 	js := fs.Bool("json", false, "Output in JSON format")
 	explain := fs.Bool("explain", false, "Explain why paths were selected")
+	useAuth := fs.Bool("auth", false, "Enable biometric authentication for interactive cleanup")
 	fs.Parse(args)
 
 	var ageDuration time.Duration
@@ -144,14 +146,14 @@ func runScan(args []string) error {
 	fmt.Printf(Bold+"Total reclaimable space: %s"+Reset+"\n", Colorize(Green, FormatSize(results.TotalSize)))
 
 	if *interactive {
-		return runInteractiveScan(results)
+		return runInteractiveScan(results, *useAuth)
 	}
 
 	fmt.Println("\nRun 'burrow clean' (or use -i) to reclaim space.")
 	return nil
 }
 
-func runInteractiveScan(results *scanner.ScanResults) error {
+func runInteractiveScan(results *scanner.ScanResults, useAuth bool) error {
 	fmt.Println("\n" + Bold + "Interactive Cleanup Selection" + Reset)
 	fmt.Println("Enter IDs to clean (e.g. '1, 3, 5-7') or 'all'. Press Enter to skip.")
 	fmt.Print(Colorize(Green, "Selection > "))
@@ -213,8 +215,24 @@ func runInteractiveScan(results *scanner.ScanResults) error {
 	}
 
 	fmt.Printf("\nSelected %d items for cleanup.\n", len(toClean))
+
+	cfg, _ := config.Load()
+	if cfg.EnableAuth || useAuth {
+		PrintInfo("Authenticating...")
+		authenticator := auth.Current()
+		success, err := authenticator.Authenticate("confirm cleanup")
+		if err != nil {
+			return fmt.Errorf("authentication error: %w", err)
+		}
+		if !success {
+			PrintWarning("Authentication failed. Cleanup aborted.")
+			return nil
+		}
+		PrintSuccess("Authentication successful.")
+	}
+
 	c := cleaner.NewCleaner()
-	res, err := c.Clean(toClean, false)
+	res, err := c.Clean(toClean, false, false)
 	if err != nil {
 		return err
 	}
@@ -231,6 +249,8 @@ func runClean(args []string) error {
 	olderThan := fs.String("older-than", "", "Filter items older than duration (e.g. 30d, 24h)")
 	yes := fs.Bool("yes", false, "Confirm cleanup automatically")
 	diff := fs.Bool("diff", false, "Show detailed diff of planned deletions")
+	permanent := fs.Bool("permanent", false, "Delete files permanently (no trash)")
+	useAuth := fs.Bool("auth", false, "Enable biometric authentication for this cleanup")
 	fs.Parse(args)
 
 	var ageDuration time.Duration
@@ -288,16 +308,34 @@ func runClean(args []string) error {
 		}
 	}
 
+	if cfg.EnableAuth || *useAuth {
+		PrintInfo("Authenticating...")
+		authenticator := auth.Current()
+		success, err := authenticator.Authenticate("confirm cleanup")
+		if err != nil {
+			return fmt.Errorf("authentication error: %w", err)
+		}
+		if !success {
+			PrintWarning("Authentication failed. Cleanup aborted.")
+			return nil
+		}
+		PrintSuccess("Authentication successful.")
+	}
+
 	c := cleaner.NewCleaner()
-	res, err := c.Clean(results.Results, false)
+	res, err := c.Clean(results.Results, false, *permanent)
 	if err != nil {
 		return err
 	}
 
 	PrintSuccess("Successfully reclaimed %s!", FormatSize(res.ReclaimedSpace))
-	fmt.Printf("Files moved to trash: %d\n", res.FileCount)
-	fmt.Printf("Trash Session ID: %s\n", Colorize(Cyan, res.TrashSession))
-	PrintInfo("You can undo this action by running 'burrow undo'.")
+	if *permanent {
+		fmt.Printf("Files permanently deleted: %d\n", res.FileCount)
+	} else {
+		fmt.Printf("Files moved to trash: %d\n", res.FileCount)
+		fmt.Printf("Trash Session ID: %s\n", Colorize(Cyan, res.TrashSession))
+		PrintInfo("You can undo this action by running 'burrow undo'.")
+	}
 
 	return nil
 }

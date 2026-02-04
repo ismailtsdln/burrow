@@ -11,6 +11,7 @@ type Config struct {
 	DisabledCategories []string `json:"disabled_categories"`
 	ExcludedPaths      []string `json:"excluded_paths"`
 	SizeThresholdMB    int64    `json:"size_threshold_mb"`
+	EnableAuth         bool     `json:"enable_auth"`
 }
 
 // Load loads the configuration from ~/.config/burrow/config.json.

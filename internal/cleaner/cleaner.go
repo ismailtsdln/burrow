@@ -1,6 +1,7 @@
 package cleaner
 
 import (
+	"os"
 	"time"
 
 	"github.com/ismailtsdln/burrow/internal/history"
@@ -27,7 +28,7 @@ type CleanResult struct {
 }
 
 // Clean executes the cleanup of the provided results.
-func (c *Cleaner) Clean(results []rules.Result, dryRun bool) (*CleanResult, error) {
+func (c *Cleaner) Clean(results []rules.Result, dryRun bool, permanent bool) (*CleanResult, error) {
 	var totalSpace int64
 	var totalPaths []string
 
@@ -47,9 +48,20 @@ func (c *Cleaner) Clean(results []rules.Result, dryRun bool) (*CleanResult, erro
 		}, nil
 	}
 
-	session, err := c.trashManager.MoveToTrash(totalPaths)
-	if err != nil {
-		return nil, err
+	var session string
+	if permanent {
+		for _, path := range totalPaths {
+			if err := os.RemoveAll(path); err != nil {
+				return nil, err
+			}
+		}
+		session = "PERMANENT"
+	} else {
+		var err error
+		session, err = c.trashManager.MoveToTrash(totalPaths)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Save to history
