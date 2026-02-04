@@ -1,8 +1,6 @@
 # Burrow — Developer-First macOS Cleanup
 
-<p align="center">
-  <img src="assets/logo.svg" width="200" alt="Burrow Logo">
-</p>
+![Burrow Logo](assets/logo.svg)
 
 Burrow is a macOS-first command-line tool designed for developers to safely identify and remove unnecessary files left behind by development tools, SDKs, and package managers.
 
@@ -60,7 +58,7 @@ burrow clean --yes
 
 ## Categories Covered
 
-- **Package Managers**: 
+- **Package Managers**:
   - **Node.js**: npm (`~/.npm`), Yarn (`~/Library/Caches/Yarn`).
   - **Python**: pip (`~/Library/Caches/pip`).
   - **Rust**: Cargo registry & index (`~/.cargo`).
@@ -69,13 +67,13 @@ burrow clean --yes
   - **PHP**: Composer (`~/.composer/cache`).
   - **iOS**: CocoaPods (`~/Library/Caches/CocoaPods`).
   - **macOS**: Homebrew (`~/Library/Caches/Homebrew`).
-- **Developer Tools**: 
+- **Developer Tools**:
   - **Xcode**: DerivedData, Simulators.
   - **Android**: Build Cache.
   - **Java/Kotlin**: Gradle Cache.
   - **Go**: Build Cache (`~/.cache/go-build`).
   - **JetBrains**: Caches (IntelliJ, WebStorm, PyCharm, etc.).
-- **System**: 
+- **System**:
   - **Electron Apps**: Cache cleanup for Slack, Discord, VS Code.
   - General user caches and temporary files (`/tmp`).
 - **Containers**: Docker configuration and usage inspection.
