@@ -28,6 +28,32 @@ burrow doctor    # Check system health and permissions
 burrow version   # Show version information
 ```
 
+## Advanced Usage
+
+Filter scans by category:
+
+```bash
+burrow scan --category "Developer Tools"
+```
+
+Explain why files are being flagged:
+
+```bash
+burrow scan --explain
+```
+
+Output results as JSON for automation:
+
+```bash
+burrow stats --json | jq .
+```
+
+Clean without confirmation (CI/CD mode):
+
+```bash
+burrow clean --yes
+```
+
 ## Categories Covered
 
 - **Package Managers**: Homebrew, npm, pip, Cargo registry index/cache.

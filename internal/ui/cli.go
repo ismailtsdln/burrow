@@ -50,19 +50,19 @@ func Execute() error {
 }
 
 func printUsage() {
-	fmt.Println("Burrow — Advanced macOS Cleanup for Developers")
-	fmt.Println("\nUsage:")
+	fmt.Println(Bold + Cyan + "Burrow — Advanced macOS Cleanup for Developers" + Reset)
+	fmt.Println("\n" + Bold + "Usage:" + Reset)
 	fmt.Println("  burrow <command> [flags]")
-	fmt.Println("\nCommands:")
-	fmt.Println("  scan      Identify cleanup candidates")
-	fmt.Println("  clean     Remove identified files (dry-run by default)")
-	fmt.Println("  undo      Restore last cleanup from trash")
-	fmt.Println("  list      List all detected files")
-	fmt.Println("  rules     List all cleanup rules")
-	fmt.Println("  stats     Show disk reclaimable stats")
-	fmt.Println("  doctor    Check system health and permissions")
-	fmt.Println("  version   Show version information")
-	fmt.Println("\nFlags:")
+	fmt.Println("\n" + Bold + "Commands:" + Reset)
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "scan"), "Identify cleanup candidates")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "clean"), "Remove identified files (dry-run by default)")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "undo"), "Restore last cleanup from trash")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "list"), "List all detected files")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "rules"), "List all cleanup rules")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "stats"), "Show disk reclaimable stats")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "doctor"), "Check system health and permissions")
+	fmt.Printf("  %-10s %s\n", Colorize(Green, "version"), "Show version information")
+	fmt.Println("\n" + Bold + "Flags:" + Reset)
 	fmt.Println("  -h, --help   Show help for a command")
 }
 
@@ -82,7 +82,7 @@ func runScan(args []string) error {
 	})
 
 	if !*js {
-		fmt.Println("🔍 Scanning for cleanup candidates...")
+		PrintInfo("Scanning for cleanup candidates...")
 	}
 
 	results, err := s.Scan()
@@ -97,21 +97,21 @@ func runScan(args []string) error {
 	}
 
 	if len(results.Results) == 0 {
-		fmt.Println("✨ No cleanup candidates found. Your system is clean!")
+		PrintSuccess("No cleanup candidates found. Your system is clean!")
 		return nil
 	}
 
-	fmt.Printf("\n%-30s %-15s %s\n", "CATEGORY", "SIZE", "RULE")
-	fmt.Println(strings.Repeat("-", 70))
+	PrintHeader(fmt.Sprintf("%-30s %-15s %s", "CATEGORY", "SIZE", "RULE"))
+	fmt.Println(Gray + strings.Repeat("-", 70) + Reset)
 	for _, res := range results.Results {
-		fmt.Printf("%-30s %-15s %s\n", res.Rule.Category, FormatSize(res.TotalSize), res.Rule.Name)
+		fmt.Printf("%-30s %-15s %s\n", Colorize(Blue, res.Rule.Category), Colorize(Yellow, FormatSize(res.TotalSize)), res.Rule.Name)
 		if *explain {
-			fmt.Printf("   💡 %s\n", res.Rule.Explanation)
+			fmt.Printf("   %s %s\n", Colorize(Cyan, "💡"), Colorize(Gray, res.Rule.Explanation))
 		}
 	}
 
-	fmt.Println(strings.Repeat("-", 70))
-	fmt.Printf("Total reclaimable space: %s\n", FormatSize(results.TotalSize))
+	fmt.Println(Gray + strings.Repeat("-", 70) + Reset)
+	fmt.Printf(Bold+"Total reclaimable space: %s"+Reset+"\n", Colorize(Green, FormatSize(results.TotalSize)))
 	fmt.Println("\nRun 'burrow clean' to see a detailed breakdown or 'burrow list' to see all files.")
 	return nil
 }
@@ -136,27 +136,27 @@ func runClean(args []string) error {
 	}
 
 	if len(results.Results) == 0 {
-		fmt.Println("✨ No cleanup candidates found. Your system is clean!")
+		PrintSuccess("No cleanup candidates found. Your system is clean!")
 		return nil
 	}
 
 	if *dryRun && !*yes {
-		fmt.Println("\nCleanup Summary (Dry Run):")
-		fmt.Printf("%-30s %-15s %s\n", "CATEGORY", "SIZE", "RULE")
-		fmt.Println(strings.Repeat("-", 70))
+		PrintHeader("Cleanup Summary (Dry Run):")
+		fmt.Printf(Bold+"%-30s %-15s %s"+Reset+"\n", "CATEGORY", "SIZE", "RULE")
+		fmt.Println(Gray + strings.Repeat("-", 70) + Reset)
 		for _, res := range results.Results {
-			fmt.Printf("%-30s %-15s %s\n", res.Rule.Category, FormatSize(res.TotalSize), res.Rule.Name)
+			fmt.Printf("%-30s %-15s %s\n", Colorize(Blue, res.Rule.Category), Colorize(Yellow, FormatSize(res.TotalSize)), res.Rule.Name)
 			if *diff {
 				for _, p := range res.FoundPaths {
-					fmt.Printf("   - %s\n", p)
+					fmt.Printf("   %s %s\n", Colorize(Red, "-"), Colorize(Gray, p))
 				}
 			}
 		}
-		fmt.Println(strings.Repeat("-", 70))
-		fmt.Printf("Total to be reclaimed: %s\n", FormatSize(results.TotalSize))
+		fmt.Println(Gray + strings.Repeat("-", 70) + Reset)
+		fmt.Printf(Bold+"Total to be reclaimed: %s"+Reset+"\n", Colorize(Green, FormatSize(results.TotalSize)))
 
-		if !Confirm("\nDo you want to proceed with the cleanup?") {
-			fmt.Println("Cleanup cancelled.")
+		if !Confirm("\n" + Colorize(Yellow, "Do you want to proceed with the cleanup?")) {
+			PrintWarning("Cleanup cancelled.")
 			return nil
 		}
 	}
@@ -167,21 +167,21 @@ func runClean(args []string) error {
 		return err
 	}
 
-	fmt.Printf("\n✅ Successfully reclaimed %s!\n", FormatSize(res.ReclaimedSpace))
+	PrintSuccess("Successfully reclaimed %s!", FormatSize(res.ReclaimedSpace))
 	fmt.Printf("Files moved to trash: %d\n", res.FileCount)
-	fmt.Printf("Trash Session ID: %s\n", res.TrashSession)
-	fmt.Println("\nYou can undo this action by running 'burrow undo'.")
+	fmt.Printf("Trash Session ID: %s\n", Colorize(Cyan, res.TrashSession))
+	PrintInfo("You can undo this action by running 'burrow undo'.")
 
 	return nil
 }
 
 func runUndo() error {
 	c := cleaner.NewCleaner()
-	fmt.Println("♻️ Restoring last cleanup session...")
+	PrintInfo("Restoring last cleanup session...")
 	if err := c.Undo(); err != nil {
 		return err
 	}
-	fmt.Println("✅ Successfully restored last cleanup session!")
+	PrintSuccess("Successfully restored last cleanup session!")
 	return nil
 }
 
@@ -288,52 +288,52 @@ func runStats(args []string) error {
 		return nil
 	}
 
-	fmt.Printf("\n%-30s %s\n", "CATEGORY", "TOTAL SIZE")
-	fmt.Println(strings.Repeat("-", 45))
+	PrintHeader(fmt.Sprintf("%-30s %s", "CATEGORY", "TOTAL SIZE"))
+	fmt.Println(Gray + strings.Repeat("-", 45) + Reset)
 	for cat, size := range stats {
-		fmt.Printf("%-30s %s\n", cat, FormatSize(size))
+		fmt.Printf("%-30s %s\n", Colorize(Blue, cat), Colorize(Yellow, FormatSize(size)))
 	}
-	fmt.Println(strings.Repeat("-", 45))
-	fmt.Printf("%-30s %s\n", "TOTAL RECLAIMABLE", FormatSize(results.TotalSize))
+	fmt.Println(Gray + strings.Repeat("-", 45) + Reset)
+	fmt.Printf(Bold+"%-30s %s"+Reset+"\n", "TOTAL RECLAIMABLE", Colorize(Green, FormatSize(results.TotalSize)))
 
 	return nil
 }
 
 func runDoctor() error {
-	fmt.Println("🏥 Burrow Doctor — Diagnostic Report")
-	fmt.Println(strings.Repeat("-", 40))
+	PrintHeader("Burrow Doctor — Diagnostic Report")
+	fmt.Println(Gray + strings.Repeat("-", 40) + Reset)
 
 	// Check Home Directory
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Printf("❌ Home Directory: Error - %v\n", err)
+		PrintError("Home Directory: Error - %v", err)
 	} else {
-		fmt.Printf("✅ Home Directory: %s\n", home)
+		PrintSuccess("Home Directory: %s", home)
 	}
 
 	// Check Burrow Folders
 	burrowDir := filepath.Join(home, ".burrow")
 	if _, err := os.Stat(burrowDir); os.IsNotExist(err) {
-		fmt.Println("⚠️ Burrow Directory: Not found (will be created on first clean)")
+		PrintWarning("Burrow Directory: Not found (will be created on first clean)")
 	} else {
-		fmt.Printf("✅ Burrow Directory: %s\n", burrowDir)
+		PrintSuccess("Burrow Directory: %s", burrowDir)
 	}
 
 	// Check Permissions
 	testFile := filepath.Join(home, ".burrow", "test_perm")
 	os.MkdirAll(filepath.Dir(testFile), 0755)
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-		fmt.Printf("❌ Write Permissions: Failed - %v\n", err)
+		PrintError("Write Permissions: Failed - %v", err)
 	} else {
-		fmt.Println("✅ Write Permissions: OK")
+		PrintSuccess("Write Permissions: OK")
 		os.Remove(testFile)
 	}
 
 	// Check OS
-	fmt.Printf("✅ Operating System: macOS (detected)\n")
+	PrintSuccess("Operating System: macOS (detected)")
 
-	fmt.Println(strings.Repeat("-", 40))
-	fmt.Println("All systems operational. Burrow is ready to dig!")
+	fmt.Println(Gray + strings.Repeat("-", 40) + Reset)
+	PrintInfo("All systems operational. Burrow is ready to dig!")
 	return nil
 }
 
